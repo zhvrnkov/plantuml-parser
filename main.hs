@@ -126,9 +126,11 @@ r_dotted_arrow = string $ r_dotted_arrow_token
 
 colon = string ":"
 message' = flatten ((many (space <|> anyWord)) .>> (newline <|> empty))
+message_statement = flatten $ psequence [colon, message']
 
-call = mapper |>> psequence [anyWord, empty, arrow, empty, anyWord, empty, colon, message']
-  where mapper = \[p1, _, a, _, p2, _, _, m] -> (call_init a) p1 p2 m
+call = mapper |>> psequence [anyWord, empty, arrow, empty, anyWord, empty, message_statement <|> newline]
+  where mapper [p1, _, a, _, p2, _, _, m] = (call_init a) p1 p2 m
+        mapper [p1, _, a, _, p2, _, _]    = (call_init a) p1 p2 ""
 
 call_init arrow
   | arrow == straight_arrow_token   = Call Sync
