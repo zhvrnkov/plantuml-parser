@@ -94,7 +94,7 @@ flatten parser = concat |>> parser
 
 ------------------------------------------------
 
-data Statement = SCall Call
+data Statement = SCall Call | SGroup Group | SParticipant Participant
   deriving (Show)
 
 data Call = Call
@@ -106,6 +106,17 @@ data Call = Call
 
 data CallKind = Sync | Async
   deriving (Show)
+
+data Group =
+  Common { group_name :: String
+         , group_statements :: [Statement]
+         } |
+  AltElse [Group]
+  deriving (Show)
+
+data Participant = Participant
+  { participant_name :: String
+  } deriving (Show)
 
 main = do
   content <- readFile "test_calls.puml"
@@ -144,9 +155,18 @@ call_init arrow
   | arrow == r_straight_arrow_token = flip $ Call Sync
   | arrow == r_dotted_arrow_token   = flip $ Call Async
 
-empty_statement = const Nothing |>> emptyLine
-call_statement = (Just . SCall) |>> call
+group = undefined
+
+group_declaration = string common_group_token >>. empty >>. message'
+common_group_token = "group"
+end_token = "end"
+
+participant = undefined
   
-statement = call_statement <|> empty_statement
+statement = scall <|> empty_statement
+  where empty_statement = const Nothing |>> emptyLine
+        scall        = (Just . SCall) |>> call
+        sgroup       = (Just . SGroup) |>> group
+        sparticipant = (Just . SParticipant) |>> participant
 
 statements = (map fromJust . filter isJust) |>> many1 statement
