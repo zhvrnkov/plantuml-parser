@@ -1,3 +1,5 @@
+import Data.Maybe
+
 type ParserOutput a b = Either (b, [a]) String
 type Parser a b = [a] -> ParserOutput a b
 
@@ -92,6 +94,9 @@ flatten parser = concat |>> parser
 
 ------------------------------------------------
 
+data Statement = SCall Call
+  deriving (Show)
+
 data Call = Call
   { kind    :: CallKind
   , caller  :: String
@@ -104,13 +109,14 @@ data CallKind = Sync | Async
 
 main = do
   content <- readFile "test_calls.puml"
-  print (calls content)
+  print (statements content)
   return ()
 
 newline = sparser '\n'
 space = sparser ' '
 anyWord = many1 . anyOf $ show (['a'..'z'] ++ ['A'..'Z'])
 empty = space <|> ((:[]) |>> pdefault ' ')
+emptyLine = (many . anyOf $ show ['\0', ' ', '\t']) .>> newline
 
 arrow = straight_arrow <|> dotted_arrow <|> r_dotted_arrow <|> r_straight_arrow
 
@@ -138,5 +144,9 @@ call_init arrow
   | arrow == r_straight_arrow_token = flip $ Call Sync
   | arrow == r_dotted_arrow_token   = flip $ Call Async
 
-calls = many1 call
+empty_statement = const Nothing |>> emptyLine
+call_statement = (Just . SCall) |>> call
+  
+statement = call_statement <|> empty_statement
 
+statements = (map fromJust . filter isJust) |>> many1 statement
