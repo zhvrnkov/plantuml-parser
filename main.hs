@@ -93,14 +93,17 @@ flatten parser = concat |>> parser
 ------------------------------------------------
 
 data Call = Call
-  { caller  :: String
+  { kind    :: CallKind
+  , caller  :: String
   , called  :: String
   , message :: String
   } deriving (Show)
 
+data CallKind = Sync | Async
+  deriving (Show)
+
 main = do
   content <- readFile "test_calls.puml"
-  print (last content)
   print (calls content)
   return ()
 
@@ -108,12 +111,30 @@ newline = sparser '\n'
 space = sparser ' '
 anyWord = many1 . anyOf $ show (['a'..'z'] ++ ['A'..'Z'])
 empty = space <|> ((:[]) |>> pdefault ' ')
-arrow = string "->"
+
+arrow = straight_arrow <|> dotted_arrow <|> r_dotted_arrow <|> r_straight_arrow
+
+straight_arrow_token   = "->"
+dotted_arrow_token     = "-->"
+r_straight_arrow_token = "<-"
+r_dotted_arrow_token   = "<--"
+
+straight_arrow = string straight_arrow_token
+dotted_arrow = string dotted_arrow_token
+r_straight_arrow = string $ r_straight_arrow_token
+r_dotted_arrow = string $ r_dotted_arrow_token
+
 colon = string ":"
 message' = flatten ((many (space <|> anyWord)) .>> (newline <|> empty))
 
 call = mapper |>> psequence [anyWord, empty, arrow, empty, anyWord, empty, colon, message']
-  where mapper = \[p1, _, a, _, p2, _, _, m] -> Call p1 p2 m
+  where mapper = \[p1, _, a, _, p2, _, _, m] -> (call_init a) p1 p2 m
+
+call_init arrow
+  | arrow == straight_arrow_token   = Call Sync
+  | arrow == dotted_arrow_token     = Call Async
+  | arrow == r_straight_arrow_token = flip $ Call Sync
+  | arrow == r_dotted_arrow_token   = flip $ Call Async
 
 calls = many1 call
 

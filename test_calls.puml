@@ -2,3 +2,6 @@ Foo -> Bar : message
 Bar->Foo:message boo
 Bar->Foo: message boo
 Bar->Foo:message boo
+Foo <- Bar : message
+Foo --> Bar : message
+Foo <-- Bar : message
