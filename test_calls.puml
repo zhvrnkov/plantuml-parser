@@ -1,3 +1,8 @@
+
+
+participant Foo
+database Bar
+
 Foo -> Bar : message
 Bar->Foo:message boo
 Bar->Foo: message boo

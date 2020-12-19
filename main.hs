@@ -1,4 +1,5 @@
 import Data.Maybe
+import qualified Data.Char as DC
 
 type ParserOutput a b = Either (b, [a]) String
 type Parser a b = [a] -> ParserOutput a b
@@ -55,10 +56,8 @@ pbetween p1 p2 p3 = p1 >>. p2 .>> p3
 -- try to run all parsers
 -- if any succeed -- output
 -- if all failed -- failed
-choice :: Eq a => [Parser a a] -> Parser a a
 choice (p:ps) = foldl (<|>) p ps
 
-anyOf :: Eq a => [a] -> Parser a a
 anyOf = choice . parsers
 
 -- run all parsers in sequence
@@ -116,12 +115,30 @@ data Group =
 
 data Participant = Participant
   { participant_name :: String
+  , participant_kind :: ParticipantKind
   } deriving (Show)
+
+data ParticipantKind =
+  Actor |
+  Boundary |
+  Control |
+  Entity |
+  Database |
+  Collections
+  deriving (Read)
+
+instance Show ParticipantKind where
+  show Actor       = "actor"
+  show Boundary    = "boundary"
+  show Control     = "control"
+  show Entity      = "entity"
+  show Database    = "database"
+  show Collections = "collections"
 
 main = do
   results <- sequence $ map test test_files
   putStr $ unlines results
-  where tests = ["calls", "groups"]
+  where tests = ["calls", "groups", "participant"]
         test_files = map (\s -> "test_" ++ s ++ ".puml") tests
         test = \fileName -> do
           content <- readFile fileName
@@ -149,7 +166,7 @@ line = flatten ((many (space <|> anyWord)) .>> (newline <|> empty))
 many_spaces = many space
 startP parser = many_spaces >>. parser
   
-statement = sgroup <|> scall <|> empty_statement
+statement = sgroup <|> sparticipant <|> scall <|> empty_statement
   where empty_statement = const Nothing |>> emptyLine
         scall        = (Just . SCall) |>> call
         sgroup       = (Just . SGroup) |>> group
@@ -198,4 +215,7 @@ end_token = "end"
 
 -- PARTICIPANT --------------------
 
-participant = undefined
+participant = mapper |>> psequence [startP kind, space, line]
+  where kind = choice $ map (string . show) [Actor, Boundary, Control, Entity, Database, Collections]
+        mapper [kind, _, name] = Participant name (read $ capitalized kind)
+        capitalized = \(x:xs) -> (DC.toUpper x):xs

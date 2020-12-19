@@ -1,0 +1,6 @@
+actor Bar
+actor Actor
+
+group
+  actor InGroup
+end

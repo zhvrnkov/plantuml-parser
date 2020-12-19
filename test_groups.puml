@@ -1,7 +1,11 @@
 group foo
+
+database FooBar
+
 Foo -> Bar
 
 group bar
+  actor Bar
 Bar -> Foo
 end
 
