@@ -92,6 +92,9 @@ string = psequence . parsers
 
 flatten parser = concat |>> parser
 
+only_validate :: Parser a [a] -> Parser a [a]
+only_validate parser = either (\(x, str) -> Left (x, x ++ str)) (Right . id) . parser
+
 ------------------------------------------------
 
 data Statement = SCall Call | SGroup Group | SParticipant ParticipantModel | SStatusChange StatusChange
@@ -169,6 +172,10 @@ test_file_names = do
   where tests_dir = "tests/"
         path = \s -> tests_dir ++ s
 
+test fileName = do
+  content <- readFile fileName
+  return $ statements content
+
 newline = sparser '\n'
 space = sparser ' '
 anyWord = many1 . anyOf $ show (['a'..'z'] ++ ['A'..'Z'])
@@ -180,6 +187,7 @@ line = flatten ((many (space <|> anyWord)) .>> (newline <|> empty))
 
 many_spaces = many space
 startP parser = many_spaces >>. parser
+startT token = startP . string $ token
   
 statement = sgroup <|> sparticipant <|> scall <|> sstatus_change <|> empty_statement
   where empty_statement = const Nothing |>> emptyLine
@@ -218,16 +226,34 @@ call_init arrow
 
 -- GROUP --------------------
 
-group = common_group
+group = common_group <|> alt_else_group
 
 common_group = mapper |>> (common_group_declaration .>>. statements .>> end)
   where mapper (name, statements) = CommonGroup name statements
 
-common_group_declaration = (startP $ string common_group_token) >>. empty >>. line
-end = (startP $ string end_token) .>> (newline <|> empty)
+common_group_declaration = group_declaration common_group_token
 
 common_group_token = "group"
+
+alt_else_group = mapper |>> (alt_group .>>. else_groups)
+  where alt_group = group_mapper |>> (alt_group_declaration .>>. statements .>> (else_token <|> empty))
+        group_mapper (name, statements) = CommonGroup name statements
+        else_token = (only_validate (startT else_group_token))
+        mapper (x, xs) = AltElseGroup (x:xs)
+
+else_groups = (many else_group) .>> end
+
+else_group = mapper |>> ((else_group_declaration) .>>. statements)
+  where mapper (name, statements) = CommonGroup name statements
+
+alt_group_declaration = group_declaration alt_group_token
+else_group_declaration = group_declaration else_group_token
+alt_group_token = "alt"
+else_group_token = "else"
+
+group_declaration token = (startT token) >>. empty >>. line
 end_token = "end"
+end = (startP $ string end_token) .>> (newline <|> empty)
 
 -- PARTICIPANT --------------------
 
