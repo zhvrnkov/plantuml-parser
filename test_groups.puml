@@ -5,5 +5,45 @@ group bar
 Bar -> Foo
 end
 
-Foo -> Bar
+Foo -> Bar : message
+Bar->Foo:message boo
+Bar->Foo: message boo
+Bar->Foo:message boo
+Foo <- Bar : message
+Foo --> Bar : message
+Foo <-- Bar : message
+Foo->Bar
+Foo <-- Bar : message
+
+Foo -> Bar : message
+Bar->Foo:message boo
+Bar->Foo: message boo
+Bar->Foo:message boo
+Foo <- Bar : message
+Foo --> Bar : message
+Foo <-- Bar : message
+Foo->Bar
+Foo <-- Bar : message
+
+
+Foo -> Bar : message
+
+Bar->Foo:message boo
+Bar->Foo: message boo
+Bar->Foo:message boo
+
+
+
+  Foo <- Bar : message
+  Foo --> Bar : message
+  Foo <-- Bar : message
+  
+  Foo->Bar
+  Foo <-- Bar : message
+
+
+
+
+
+
 end

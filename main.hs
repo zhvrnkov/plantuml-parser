@@ -119,9 +119,23 @@ data Participant = Participant
   } deriving (Show)
 
 main = do
-  content <- readFile "test_groups.puml"
-  print (statements content)
-  return ()
+  results <- sequence $ map test test_files
+  putStr $ unlines results
+  where tests = ["calls", "groups"]
+        test_files = map (\s -> "test_" ++ s ++ ".puml") tests
+        test = \fileName -> do
+          content <- readFile fileName
+          let success = "success : " ++ fileName
+              failure = "failure : " ++ fileName
+              result = either (const success) (const failure) (statements content)
+          return result
+
+test = \fileName -> do
+  content <- readFile fileName
+  let success = "success : " ++ fileName
+      failure = "failure : " ++ fileName
+      result = either (const success) (const failure) (statements content)
+  return result
 
 newline = sparser '\n'
 space = sparser ' '
@@ -131,6 +145,9 @@ emptyLine = (many . anyOf $ show ['\0', ' ', '\t']) .>> newline
 
 colon = string ":"
 line = flatten ((many (space <|> anyWord)) .>> (newline <|> empty))
+
+many_spaces = many space
+startP parser = many_spaces >>. parser
   
 statement = sgroup <|> scall <|> empty_statement
   where empty_statement = const Nothing |>> emptyLine
@@ -156,7 +173,7 @@ r_dotted_arrow = string $ r_dotted_arrow_token
 
 message_statement = flatten $ psequence [colon, line]
 
-call = mapper |>> psequence [anyWord, empty, arrow, empty, anyWord, empty, message_statement <|> newline]
+call = mapper |>> psequence [startP anyWord, empty, arrow, empty, anyWord, empty, message_statement <|> newline]
   where mapper [p1, _, a, _, p2, _, _, m] = (call_init a) p1 p2 m
         mapper [p1, _, a, _, p2, _, _]    = (call_init a) p1 p2 ""
 
@@ -173,8 +190,8 @@ group = common_group
 common_group = mapper |>> (common_group_declaration .>>. statements .>> end)
   where mapper (name, statements) = CommonGroup name statements
 
-common_group_declaration = (many space) >>. string common_group_token >>. empty >>. line
-end = pbetween (many space) (string end_token) (newline <|> empty)
+common_group_declaration = (startP $ string common_group_token) >>. empty >>. line
+end = (startP $ string end_token) .>> (newline <|> empty)
 
 common_group_token = "group"
 end_token = "end"
