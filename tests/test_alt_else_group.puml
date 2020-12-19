@@ -6,6 +6,10 @@ else c
 
 end
 
+alt d
+  D -> B
+end
+
 group actual group
 
 end
