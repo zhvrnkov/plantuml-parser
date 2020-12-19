@@ -93,7 +93,7 @@ flatten parser = concat |>> parser
 
 ------------------------------------------------
 
-data Statement = SCall Call | SGroup Group | SParticipant Participant
+data Statement = SCall Call | SGroup Group | SParticipant ParticipantModel | SStatusChange StatusChange
   deriving (Show)
 
 data Call = Call
@@ -113,7 +113,7 @@ data Group =
   AltElseGroup [Group]
   deriving (Show)
 
-data Participant = Participant
+data ParticipantModel = ParticipantModel
   { participant_name :: String
   , participant_kind :: ParticipantKind
   } deriving (Show)
@@ -124,7 +124,8 @@ data ParticipantKind =
   Control |
   Entity |
   Database |
-  Collections
+  Collections |
+  Participant
   deriving (Read)
 
 instance Show ParticipantKind where
@@ -134,17 +135,31 @@ instance Show ParticipantKind where
   show Entity      = "entity"
   show Database    = "database"
   show Collections = "collections"
+  show Participant = "participant"
+
+data StatusChange = Activation String | Deactivation String
+
+instance Show StatusChange where
+  show s@(Activation name)   = status_change_token s ++ " " ++ name
+  show s@(Deactivation name) = status_change_token s ++ " " ++ name
+
+status_change_init token
+  | token == (status_change_token (Activation "")) = Activation
+  | token == (status_change_token (Deactivation "")) = Deactivation
+  
+status_change_token (Activation _)   = "activate"
+status_change_token (Deactivation _) = "deactivate"
 
 main = do
   results <- sequence $ map test test_files
   putStr $ unlines results
-  where tests = ["calls", "groups", "participant"]
-        test_files = map (\s -> "test_" ++ s ++ ".puml") tests
+  where tests = ["test_calls", "test_groups", "test_participant", "voila-estimate/homepage"]
+        test_files = map (\s -> s ++ ".puml") tests
         test = \fileName -> do
           content <- readFile fileName
-          let success = "success : " ++ fileName
+          let success = \remaining -> "success : " ++ fileName ++ " (" ++ remaining ++ ")"
               failure = "failure : " ++ fileName
-              result = either (const success) (const failure) (statements content)
+              result = either (\(_, xs) -> success xs) (const failure) (statements content)
           return result
 
 test = \fileName -> do
@@ -166,11 +181,12 @@ line = flatten ((many (space <|> anyWord)) .>> (newline <|> empty))
 many_spaces = many space
 startP parser = many_spaces >>. parser
   
-statement = sgroup <|> sparticipant <|> scall <|> empty_statement
+statement = sgroup <|> sparticipant <|> scall <|> sstatus_change <|> empty_statement
   where empty_statement = const Nothing |>> emptyLine
-        scall        = (Just . SCall) |>> call
-        sgroup       = (Just . SGroup) |>> group
-        sparticipant = (Just . SParticipant) |>> participant
+        scall          = (Just . SCall) |>> call
+        sgroup         = (Just . SGroup) |>> group
+        sparticipant   = (Just . SParticipant) |>> participant
+        sstatus_change = (Just . SStatusChange) |>> status_change
 
 statements = (map fromJust . filter isJust) |>> many1 statement
 
@@ -216,6 +232,12 @@ end_token = "end"
 -- PARTICIPANT --------------------
 
 participant = mapper |>> psequence [startP kind, space, line]
-  where kind = choice $ map (string . show) [Actor, Boundary, Control, Entity, Database, Collections]
-        mapper [kind, _, name] = Participant name (read $ capitalized kind)
+  where kind = choice $ map (string . show) [Actor, Boundary, Control, Entity, Database, Collections, Participant]
+        mapper [kind, _, name] = ParticipantModel name (read $ capitalized kind)
         capitalized = \(x:xs) -> (DC.toUpper x):xs
+
+-- STATUS CHANGE --------------------
+
+status_change = mapper |>> psequence [startP token, space, line]
+  where token = choice $ map (string . status_change_token) [Activation "", Deactivation ""]
+        mapper [kind, _, name] = status_change_init kind name
