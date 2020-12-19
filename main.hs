@@ -108,10 +108,10 @@ data CallKind = Sync | Async
   deriving (Show)
 
 data Group =
-  Common { group_name :: String
-         , group_statements :: [Statement]
-         } |
-  AltElse [Group]
+  CommonGroup { group_name :: String
+              , group_statements :: [Statement]
+              } |
+  AltElseGroup [Group]
   deriving (Show)
 
 data Participant = Participant
@@ -119,7 +119,7 @@ data Participant = Participant
   } deriving (Show)
 
 main = do
-  content <- readFile "test_calls.puml"
+  content <- readFile "test_groups.puml"
   print (statements content)
   return ()
 
@@ -128,6 +128,19 @@ space = sparser ' '
 anyWord = many1 . anyOf $ show (['a'..'z'] ++ ['A'..'Z'])
 empty = space <|> ((:[]) |>> pdefault ' ')
 emptyLine = (many . anyOf $ show ['\0', ' ', '\t']) .>> newline
+
+colon = string ":"
+line = flatten ((many (space <|> anyWord)) .>> (newline <|> empty))
+  
+statement = sgroup <|> scall <|> empty_statement
+  where empty_statement = const Nothing |>> emptyLine
+        scall        = (Just . SCall) |>> call
+        sgroup       = (Just . SGroup) |>> group
+        sparticipant = (Just . SParticipant) |>> participant
+
+statements = (map fromJust . filter isJust) |>> many1 statement
+
+-- CALL --------------------
 
 arrow = straight_arrow <|> dotted_arrow <|> r_dotted_arrow <|> r_straight_arrow
 
@@ -141,9 +154,7 @@ dotted_arrow = string dotted_arrow_token
 r_straight_arrow = string $ r_straight_arrow_token
 r_dotted_arrow = string $ r_dotted_arrow_token
 
-colon = string ":"
-message' = flatten ((many (space <|> anyWord)) .>> (newline <|> empty))
-message_statement = flatten $ psequence [colon, message']
+message_statement = flatten $ psequence [colon, line]
 
 call = mapper |>> psequence [anyWord, empty, arrow, empty, anyWord, empty, message_statement <|> newline]
   where mapper [p1, _, a, _, p2, _, _, m] = (call_init a) p1 p2 m
@@ -155,18 +166,19 @@ call_init arrow
   | arrow == r_straight_arrow_token = flip $ Call Sync
   | arrow == r_dotted_arrow_token   = flip $ Call Async
 
-group = undefined
+-- GROUP --------------------
 
-group_declaration = string common_group_token >>. empty >>. message'
+group = common_group
+
+common_group = mapper |>> (common_group_declaration .>>. statements .>> end)
+  where mapper (name, statements) = CommonGroup name statements
+
+common_group_declaration = (many space) >>. string common_group_token >>. empty >>. line
+end = pbetween (many space) (string end_token) (newline <|> empty)
+
 common_group_token = "group"
 end_token = "end"
 
-participant = undefined
-  
-statement = scall <|> empty_statement
-  where empty_statement = const Nothing |>> emptyLine
-        scall        = (Just . SCall) |>> call
-        sgroup       = (Just . SGroup) |>> group
-        sparticipant = (Just . SParticipant) |>> participant
+-- PARTICIPANT --------------------
 
-statements = (map fromJust . filter isJust) |>> many1 statement
+participant = undefined

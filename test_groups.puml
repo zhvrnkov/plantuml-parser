@@ -1,0 +1,9 @@
+group foo
+Foo -> Bar
+
+group bar
+Bar -> Foo
+end
+
+Foo -> Bar
+end
