@@ -1,5 +1,6 @@
 import Data.Maybe
 import qualified Data.Char as DC
+import qualified System.Process as SP
 
 type ParserOutput a b = Either (b, [a]) String
 type Parser a b = [a] -> ParserOutput a b
@@ -151,23 +152,22 @@ status_change_token (Activation _)   = "activate"
 status_change_token (Deactivation _) = "deactivate"
 
 main = do
+  test_files <- test_file_names
   results <- sequence $ map test test_files
   putStr $ unlines results
-  where tests = ["test_calls", "test_groups", "test_participant", "voila-estimate/homepage"]
-        test_files = map (\s -> s ++ ".puml") tests
-        test = \fileName -> do
+  where test = \fileName -> do
           content <- readFile fileName
           let success = \remaining -> "success : " ++ fileName ++ " (" ++ remaining ++ ")"
               failure = "failure : " ++ fileName
               result = either (\(_, xs) -> success xs) (const failure) (statements content)
           return result
 
-test = \fileName -> do
-  content <- readFile fileName
-  let success = "success : " ++ fileName
-      failure = "failure : " ++ fileName
-      result = either (const success) (const failure) (statements content)
-  return result
+test_file_names = do
+  ls_tests <- SP.readProcess "ls" [tests_dir] ""
+  let tests = (map path $ lines ls_tests)
+  return tests
+  where tests_dir = "tests/"
+        path = \s -> tests_dir ++ s
 
 newline = sparser '\n'
 space = sparser ' '
