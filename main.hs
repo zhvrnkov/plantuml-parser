@@ -1,6 +1,10 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 import Data.Maybe
 import qualified Data.Char as DC
 import qualified System.Process as SP
+import GHC.Generics
+import Data.Aeson
 
 type ParserOutput a b = Either (b, [a]) String
 type Parser a b = [a] -> ParserOutput a b
@@ -98,29 +102,34 @@ only_validate parser = either (\(x, str) -> Left (x, x ++ str)) (Right . id) . p
 ------------------------------------------------
 
 data Statement = SCall Call | SGroup Group | SParticipant ParticipantModel | SStatusChange StatusChange
-  deriving (Show)
+  deriving (Show, Generic)
+instance ToJSON Statement
 
 data Call = Call
   { kind    :: CallKind
   , caller  :: String
   , called  :: String
   , message :: String
-  } deriving (Show)
+  } deriving (Show, Generic)
+instance ToJSON Call
 
 data CallKind = Sync | Async
-  deriving (Show)
+  deriving (Show, Generic)
+instance ToJSON CallKind
 
 data Group =
   CommonGroup { group_name :: String
               , group_statements :: [Statement]
               } |
   AltElseGroup [Group]
-  deriving (Show)
+  deriving (Show, Generic)
+instance ToJSON Group
 
 data ParticipantModel = ParticipantModel
   { participant_name :: String
   , participant_kind :: ParticipantKind
-  } deriving (Show)
+  } deriving (Show, Generic)
+instance ToJSON ParticipantModel
 
 data ParticipantKind =
   Actor |
@@ -130,7 +139,8 @@ data ParticipantKind =
   Database |
   Collections |
   Participant
-  deriving (Read)
+  deriving (Read, Generic)
+instance ToJSON ParticipantKind
 
 instance Show ParticipantKind where
   show Actor       = "actor"
@@ -142,6 +152,8 @@ instance Show ParticipantKind where
   show Participant = "participant"
 
 data StatusChange = Activation String | Deactivation String
+  deriving (Generic)
+instance ToJSON StatusChange
 
 instance Show StatusChange where
   show s@(Activation name)   = status_change_token s ++ " " ++ name
@@ -175,6 +187,10 @@ test_file_names = do
 test fileName = do
   content <- readFile fileName
   return $ statements content
+
+get_json fileName = do
+  diagram <- test fileName
+  return $ encode diagram
 
 newline = sparser '\n'
 space = sparser ' '
