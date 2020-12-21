@@ -228,11 +228,10 @@ dotted_arrow = string dotted_arrow_token
 r_straight_arrow = string $ r_straight_arrow_token
 r_dotted_arrow = string $ r_dotted_arrow_token
 
-message_statement = flatten $ psequence [colon, line]
+message_statement = colon >>. line
 
 call = mapper |>> psequence [startP anyWord, empty, arrow, empty, anyWord, empty, message_statement <|> newline]
-  where mapper [p1, _, a, _, p2, _, _, m] = (call_init a) p1 p2 m
-        mapper [p1, _, a, _, p2, _, _]    = (call_init a) p1 p2 ""
+  where mapper [p1, _, a, _, p2, _, m] = (call_init a) p1 p2 m
 
 call_init arrow
   | arrow == straight_arrow_token   = Call Sync
